@@ -3,7 +3,7 @@ layout: post
 title:  Jekyll setting
 data:   2020-09-14
 author: ehtltnv
-categories: [Jekyll]
+categories: [ETC]
 tags: [Jekyll, git, docker, codeserver]
 ---
 
