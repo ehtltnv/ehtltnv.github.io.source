@@ -195,7 +195,7 @@ $ kubectl get pods --all-namespaces
 $ kubeadm reset
 ```
 
-## 3.3. Node 섷정 
+## 3.3. Node 연결  
 
 ```
 $ kubeadm join 192.168.10.89:6443 --token pv0ekh.odw4qk6lqnz2q9ss --discovery-token-ca-cert-hash sha256:225a464d125c94fa9543cf78e27c0c13ca68ab80328b7c1dfae9c707777265a9 
