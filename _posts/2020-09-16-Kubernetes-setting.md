@@ -119,7 +119,8 @@ $ yum install -y docker-ce
 
 ```
 $ vi /lib/systemd/system/docker.service
-14 ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock --exec-opt native.cgroupdriver=systemd
+14 ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock \
+  --exec-opt native.cgroupdriver=systemd
 ```
 
 ## 2.3. Docker 실행 
@@ -177,9 +178,12 @@ $ kubeadm config images pull
 kubeadm join ~ 부분 복사
 이후에 Node에 설정할 때 사용 
 -->
-$ kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=192.168.10.89
+$ kubeadm init --pod-network-cidr=10.244.0.0/16 \
+--apiserver-advertise-address=192.168.10.89
 ...
-kubeadm join 192.168.10.89:6443 --token pv0ekh.odw4qk6lqnz2q9ss --discovery-token-ca-cert-hash sha256:225a464d125c94fa9543cf78e27c0c13ca68ab80328b7c1dfae9c707777265a9 
+kubeadm join 192.168.10.89:6443 --token pv0ekh.odw4qk6lqnz2q9ss \
+--discovery-token-ca-cert-hash \
+sha256:225a464d125c94fa9543cf78e27c0c13ca68ab80328b7c1dfae9c707777265a9 
 ...
 
 <!-- kubernetes 설정 -->
@@ -198,7 +202,9 @@ $ kubeadm reset
 ## 3.3. Node 연결  
 
 ```
-$ kubeadm join 192.168.10.89:6443 --token pv0ekh.odw4qk6lqnz2q9ss --discovery-token-ca-cert-hash sha256:225a464d125c94fa9543cf78e27c0c13ca68ab80328b7c1dfae9c707777265a9 
+$ kubeadm join 192.168.10.89:6443 --token pv0ekh.odw4qk6lqnz2q9ss \
+--discovery-token-ca-cert-hash \
+sha256:225a464d125c94fa9543cf78e27c0c13ca68ab80328b7c1dfae9c707777265a9 
 ```
 
 ## 3.4. 연결 확인
@@ -206,7 +212,7 @@ $ kubeadm join 192.168.10.89:6443 --token pv0ekh.odw4qk6lqnz2q9ss --discovery-to
 - Master 에서 조회
 
 ```
-<!-- 오류가 발생하면 'export KUBECONFIG=/etc/kubernetes/admin.conf' 실행 후 다시 실행-->
+<!-- 오류가 발생하면 'export KUBECONFIG=/etc/kubernetes/admin.conf' 실행 후 다시 실행 -->
 $ kubectl get nodes
 NAME     STATUS     ROLES    AGE     VERSION
 k8s-m    Ready      master   3h14m   v1.19.1
@@ -230,7 +236,9 @@ pv0ekh.odw4qk6lqnz2q9ss   20h         2020-09-17T10:36:51+09:00   authentication
 $ kubeadm token create
 f0y6yi.sg2aw57af35nz0ek
 
-$ openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
+$ openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | \
+openssl rsa -pubin -outform der 2>/dev/null | \
+openssl dgst -sha256 -hex | sed 's/^.* //'
 225a464d125c94fa9543cf78e27c0c13ca68ab80328b7c1dfae9c707777265a9
 ```
 
