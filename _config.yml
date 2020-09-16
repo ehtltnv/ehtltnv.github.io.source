@@ -65,6 +65,9 @@ descriptions:
 
   - cat: java
     desc: "java"
+  
+  - cat: docker
+    desc: "docker & kubernetes"
 
 # Social icons and sharing options
 #
