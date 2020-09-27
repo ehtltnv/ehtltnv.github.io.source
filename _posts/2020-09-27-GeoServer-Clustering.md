@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  GeoServer Clustering
-data:   2020-09-24
+data:   2020-09-27
 author: ehtltnv
 categories: [GeoServer]
 tags: [geoserver, docker]
@@ -9,7 +9,7 @@ tags: [geoserver, docker]
 
 __GeoServer__ Clustering 구축 
 
-OS는 `Centos 7`를 사용 
+OS는 `CentOS 7`를 사용 
 
 `GeoServer`는 Multi Primary로 3개로 구성하고, `ActiveMQ`는 2개로 구성 
 
@@ -25,13 +25,13 @@ $ docker network create gs_cluster
 
 <!-- GEOSERVER_DATA_DIR이 왜 필요한지는 확인 필요(TODO) -->
 $ docker run -d --privileged --name mq1 --network gs_cluster \
--p 61666:61666 \
 -v /opt/gs_cluster/data_dir:/opt/data/data_dir \
 -e GEOSERVER_DATA_DIR=/opt/data/data_dir \
 centos:7 /sbin/init 
 ```
 
-- 필요 라이브러리 및 OpenJDK 설치
+- 필요 라이브러리 및 OpenJDK 설치 
+
 ```
 $ docker exec -it mq1 bash
 
@@ -75,7 +75,39 @@ export CATALINA_OPTS="${CATALINA_OPTS} -DGEOSERVER_DATA_DIR=${GEOSERVER_DATA_DIR
 export CATALINA_OPTS="${CATALINA_OPTS} -Dactivemq.transportConnectors.server.uri=\"tcp://mq1:61666?maximumConnections=1000&wireFormat.maxFrameSize=104857600&jms.useAsyncSend=true&transport.daemon=true\""
 ```
 
-- 실행
+- 실행 
+
+```
+$ cd /opt/tomcat && ./bin/startup.sh
+```
+
+## 1.4. ActiveMQ 복제 
+
+- 세팅된 Container를 재사용하여 Container 추가 
+
+```
+$ docker commit mq1 centos:mq 
+$ docker run -d --privileged --name mq2 --network gs_cluster \
+-v /opt/gs_cluster/data_dir:/opt/data/data_dir \
+-e GEOSERVER_DATA_DIR=/opt/data/data_dir \
+centos:mq /sbin/init 
+```
+
+- 설정 변경 
+
+```
+$ docker exec -it mq2 bash 
+
+$ cd /opt/tomcat
+$ vi ./bin/setenv.sh
+export CATALINA_OPTS="${CATALINA_OPTS} -server -Dfile.encoding=UTF-8"
+export CATALINA_OPTS="${CATALINA_OPTS} -Xms1g -Xmx1g -XX:+UseConcMarkSweepGC"
+export CATALINA_OPTS="${CATALINA_OPTS} -DGEOSERVER_DATA_DIR=${GEOSERVER_DATA_DIR}"
+export CATALINA_OPTS="${CATALINA_OPTS} -Dactivemq.transportConnectors.server.uri=\"tcp://mq2:61666?maximumConnections=1000&wireFormat.maxFrameSize=104857600&jms.useAsyncSend=true&transport.daemon=true\""
+```
+
+- 실행 
+
 ```
 $ cd /opt/tomcat && ./bin/startup.sh
 ```
@@ -133,8 +165,7 @@ $ curl -OL http://apache.tt.co.kr/tomcat/tomcat-9/v9.0.38/bin/apache-tomcat-9.0.
 
 ```
 $ cd /opt/install
-$ tar zxvf apache-tomcat-9.0.38.tar.gz 
-$ mv apache-tomcat-9.0.38 ../tomcat
+$ tar zxvf apache-tomcat-9.0.38.tar.gz && mv apache-tomcat-9.0.38 ../tomcat
 $ unzip geoserver-2.17.2-war.zip -d geoserver && cd geoserver
 $ unzip geoserver.war -d geoserver
 $ cp -r geoserver/data/* /opt/data/data_dir/.
@@ -147,7 +178,8 @@ export CATALINA_OPTS="${CATALINA_OPTS} -Xms2g -Xmx2g -Xss1m"
 export CATALINA_OPTS="${CATALINA_OPTS} -XX:+UseParallelGC"
 ```
 
-- 실행
+- 실행 
+
 ```
 $ cd /opt/tomcat && ./bin/startup.sh
 ```
@@ -162,7 +194,7 @@ $ cd /opt/tomcat && ./bin/shutdown.sh
 $ cd /opt/install
 $ unzip geoserver-2.17-SNAPSHOT-jms-cluster-plugin.zip -d geoserver && cd geoserver
 $ curl -OL https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.0/commons-pool2-2.0.jar
-# cp * /opt/tomcat/webapps/geoserver/WEB-INF/lib/.
+# \cp -f * /opt/tomcat/webapps/geoserver/WEB-INF/lib/. && cd .. && rm -rf geoserver
 ```
 
 - Clustering 설정 추가 
@@ -173,7 +205,7 @@ $ vi cluster.properties
 toggleSlave=true
 connection=enabled
 topicName=VirtualTopic.geoserver
-brokerURL=tcp://mq1:61666
+brokerURL=failover:(tcp://mq1:61666,tcp://mq2:61666)
 durable=true
 xbeanURL=./broker.xml
 toggleMaster=true
@@ -198,7 +230,7 @@ $ cd /opt/tomcat && ./bin/startup.sh
 - 설정이 되어 있는 GeoServer Container 복사 
 
 ```
-$ docker commit gs1 gs_cluster:1.0
+$ docker commit gs1 centos:gs
 
 $ docker run -d --privileged --name gs2 --network gs_cluster \
 -p 28080:8080 \
@@ -206,10 +238,20 @@ $ docker run -d --privileged --name gs2 --network gs_cluster \
 -e GEOSERVER_DATA_DIR=/opt/data/data_dir \
 -e GEOSERVER_LOG_LOCATION=/opt/data/logs/geoserver2.log \
 -e CLUSTER_CONFIG_DIR=/opt/data/data_dir/cluster/geoserver2 \
-gs_cluster:1.0 /sbin/init
+centos:gs /sbin/init
+
+$ docker run -d --privileged --name gs3 --network gs_cluster \
+-p 38080:8080 \
+-v /opt/gs_cluster/data_dir:/opt/data/data_dir \
+-e GEOSERVER_DATA_DIR=/opt/data/data_dir \
+-e GEOSERVER_LOG_LOCATION=/opt/data/logs/geoserver3.log \
+-e CLUSTER_CONFIG_DIR=/opt/data/data_dir/cluster/geoserver3 \
+centos:gs /sbin/init
 ```
 
 - 설정 변경 및 실행 
+
+\- GeoServer 2 
 
 ```
 $ docker exec -it gs2 bash
@@ -220,7 +262,34 @@ $ vi cluster.properties
 CLUSTER_CONFIG_DIR=/opt/data/data_dir/cluster/geoserver2
 instanceName=geoserver2
 readOnly=disabled
-brokerURL=tcp\://mq1\:61666
+brokerURL=failover:(tcp://mq1:61666,tcp://mq2:61666)
+durable=true
+embeddedBroker=disabled
+toggleMaster=true
+connection.retry=10
+xbeanURL=./broker.xml
+embeddedBrokerProperties=embedded-broker.properties
+topicName=VirtualTopic.geoserver
+connection=enabled
+toggleSlave=true
+connection.maxwait=500
+group=geoserver-cluster
+
+$ cd /opt/tomcat && ./bin/startup.sh
+```
+
+\- GeoServer 3  
+
+```
+$ docker exec -it gs3 bash
+
+$ mkdir -p $CLUSTER_CONFIG_DIR  && cd $CLUSTER_CONFIG_DIR
+$ cp ../geoserver1/cluster.properties .
+$ vi cluster.properties
+CLUSTER_CONFIG_DIR=/opt/data/data_dir/cluster/geoserver3
+instanceName=geoserver3
+readOnly=disabled
+brokerURL=failover:(tcp://mq1:61666,tcp://mq2:61666)
 durable=true
 embeddedBroker=disabled
 toggleMaster=true
